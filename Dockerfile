@@ -2,7 +2,7 @@
 
 ARG BASE_IMAGE=alpine:3.19.1
 ARG JS_IMAGE=node:20-alpine
-ARG JS_PLATFORM=linux/amd64
+ARG JS_PLATFORM=linux/s390x
 ARG GO_IMAGE=golang:1.22.4-alpine
 
 ARG GO_SRC=go-builder
@@ -21,13 +21,14 @@ COPY plugins-bundled plugins-bundled
 COPY public public
 COPY LICENSE ./
 
-RUN apk add --no-cache make build-base python3
-
-RUN yarn install --immutable
+COPY s390x-fix.sh ./
+RUN ./s390x-fix.sh
 
 COPY tsconfig.json .eslintrc .editorconfig .browserslistrc .prettierrc.js ./
 COPY scripts scripts
 COPY emails emails
+
+RUN yarn install
 
 ENV NODE_ENV production
 RUN yarn build
@@ -87,12 +88,9 @@ FROM ${BASE_IMAGE} as tgz-builder
 
 WORKDIR /tmp/grafana
 
-ARG GRAFANA_TGZ="grafana-latest.linux-x64-musl.tar.gz"
-
-COPY ${GRAFANA_TGZ} /tmp/grafana.tar.gz
-
-# add -v to make tar print every file it extracts
-RUN tar x -z -f /tmp/grafana.tar.gz --strip-components=1
+COPY ./public ./public
+COPY ./scripts ./scripts
+COPY ./plugins-bundled ./plugins-bundled
 
 # helpers for COPY --from
 FROM ${GO_SRC} as go-src
